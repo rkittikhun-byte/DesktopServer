@@ -4,14 +4,21 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
-    <AssemblyName>DesktopServerSetupLite</AssemblyName>
     <RootNamespace>DesktopServerSetup</RootNamespace>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationIcon>Resources\app_icon.ico</ApplicationIcon>
+    <ApplicationIcon>app_icon.ico</ApplicationIcon>
+    <Product>Monrak Desktop Server Lite</Product>
+    <Company>Monrak Net Co., Ltd.</Company>
+    <Authors>MonrakNet Technology</Authors>
+    <Copyright>Copyright © 2026 Monrak Net Protocol</Copyright>
+    <Description>Integrated Next-Gen AI-Ready PHP Environment Setup Engine (Lite Edition).</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="app_icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <EmbeddedResource Include="Resources\**\*" />
   </ItemGroup>
 
