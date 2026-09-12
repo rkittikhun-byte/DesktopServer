@@ -13,7 +13,7 @@
     <Authors>MonrakNet Technology</Authors>
     <Company>Monrak Net Co., Ltd.</Company>
     <Product>Desktop Server Pro</Product>
-    <Description>Next-Gen Local Development Environment.|A powerful, easy-to-use professional stack for Windows developers.|Features integrated Apache 2.4, MySQL 8.0, and a hybrid PHP engine supporting legacy and modern versions (5.6, 7.4, 8.2) simultaneously.|Built for performance, security, and the future of local development.</Description>
+    <Description>Next-Gen Local Development Environment.|A powerful, easy-to-use professional stack for Windows developers.|Features integrated Apache 2.4, MySQL 8.0, and a hybrid PHP engine supporting legacy and modern versions (5.6, 7.4, 8.2, 8.4) simultaneously.|Built for performance, security, and the future of local development.</Description>
     <Copyright>Copyright © 2026 Monrak Net Protocol</Copyright>
   </PropertyGroup>
 

@@ -116,7 +116,7 @@ public partial class MainForm : Form
     {
         cboPhpVersion.Items.Clear();
         // Detect available PHP versions
-        var potentialVersions = new[] { "php74", "php56", "php82" };
+        var potentialVersions = new[] { "php74", "php56", "php82", "php84" };
         foreach (var ver in potentialVersions)
         {
             if (Directory.Exists(Path.Combine(rootPath, ver)))
@@ -147,6 +147,7 @@ public partial class MainForm : Form
             string confPath = Path.Combine(rootPath, @"apache24\conf\httpd.conf");
             if (!File.Exists(confPath)) return null;
             string content = File.ReadAllText(confPath);
+            if (content.Contains("/php84/")) return "php84";
             if (content.Contains("/php56/")) return "php56";
             if (content.Contains("/php82/")) return "php82";
             if (content.Contains("/php74/")) return "php74";
@@ -499,7 +500,10 @@ public partial class MainForm : Form
                 // This allows PHP extensions to find dependencies like libeay32.dll, ssleay32.dll
                 if (service == "apache")
                 {
-                    string currentPhp = cboPhpVersion.SelectedItem?.ToString() ?? "php74";
+                    // Take the version from httpd.conf, not the combo box. When the two disagree
+                    // the wrong PHP folder goes on PATH and extensions that need the DLLs in it
+                    // (curl, for one) silently fail to load.
+                    string currentPhp = DetectCurrentPhpVersion() ?? cboPhpVersion.SelectedItem?.ToString() ?? "php74";
                     string phpPath = Path.Combine(rootPath, currentPhp);
                     string existingPath = Environment.GetEnvironmentVariable("Path") ?? "";
                     psi.EnvironmentVariables["Path"] = $"{phpPath};{existingPath}";

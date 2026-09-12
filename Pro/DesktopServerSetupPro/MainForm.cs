@@ -173,7 +173,8 @@ namespace DesktopServerSetupPro
                 await SetupComponentFromResource(rootPath, "Apache 2.4", "apache24_tmp.zip", "apache24", 10, 30);
                 await SetupComponentFromResource(rootPath, "PHP 7.4", "php74.zip", "php74", 30, 40);
                 await SetupComponentFromResource(rootPath, "PHP 5.6", "php56.zip", "php56", 40, 50);
-                await SetupComponentFromResource(rootPath, "PHP 8.2", "php82.zip", "php82", 50, 60);
+                await SetupComponentFromResource(rootPath, "PHP 8.2", "php82.zip", "php82", 50, 55);
+                await SetupComponentFromResource(rootPath, "PHP 8.4", "php84.zip", "php84", 55, 60);
                 await SetupComponentFromResource(rootPath, "MySQL 8.0.27", "mysql80_tmp.zip", "mysql80", 60, 75);
                 await SetupComponentFromResource(rootPath, "phpMyAdmin (Main)", "pma_tmp.zip", "phpmyadmin", 70, 80);
                 await SetupComponentFromResource(rootPath, "phpMyAdmin (5.6)", "pma56_tmp.zip", "phpmyadmin56", 80, 90);
@@ -479,6 +480,16 @@ namespace DesktopServerSetupPro
                 DeleteDirectoryIgnoreError(php82Tmp);
             }
 
+            // PHP 8.4
+            string php84Tmp = Path.Combine(root, "php84_tmp");
+            string php84Dest = Path.Combine(root, "php84");
+            if (Directory.Exists(php84Tmp))
+            {
+                Log("Moving PHP 8.4...");
+                MoveFolderIfExists(php84Tmp, php84Dest, false);
+                DeleteDirectoryIgnoreError(php84Tmp);
+            }
+
             // phpMyAdmin
             string pmaTmp = Path.Combine(root, "phpmyadmin_tmp");
             string pmaDest = Path.Combine(www, "phpmyadmin");
@@ -631,11 +642,35 @@ namespace DesktopServerSetupPro
                 }
                 // -------------------------------------
 
-                // Add PHP Integration if not present
-                if (!content.Contains("php7_module"))
+                // PHP Integration. An existing block is repointed at this install rather than
+                // left alone: the old one may name a path that no longer exists, and appending
+                // a second block (what happened whenever the user had switched to PHP 8.x,
+                // where the module is named php_module) leaves Apache loading two at once.
+                // Setup owns the baseline, so this resets the stack to the bundled PHP 7.4.
+                bool hasIniDir = System.Text.RegularExpressions.Regex.IsMatch(content,
+                    @"^\s*PHPIniDir\s+"".*""", System.Text.RegularExpressions.RegexOptions.Multiline);
+                bool hasPhpModule = System.Text.RegularExpressions.Regex.IsMatch(content,
+                    @"^\s*LoadModule\s+php\d?_module\s+"".*""", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+                if (hasIniDir)
                 {
-                    string phpMod = $"\n# PHP 7.4 Integration\nPHPIniDir \"{phpPathUrl}\"\nLoadModule php7_module \"{phpPathUrl}/php7apache2_4.dll\"\nAddType application/x-httpd-php .php\n";
-                    content += phpMod;
+                    content = System.Text.RegularExpressions.Regex.Replace(content,
+                        @"^\s*PHPIniDir\s+"".*""", $"PHPIniDir \"{phpPathUrl}\"",
+                        System.Text.RegularExpressions.RegexOptions.Multiline);
+                }
+                if (hasPhpModule)
+                {
+                    content = System.Text.RegularExpressions.Regex.Replace(content,
+                        @"^\s*LoadModule\s+php\d?_module\s+"".*""", $"LoadModule php7_module \"{phpPathUrl}/php7apache2_4.dll\"",
+                        System.Text.RegularExpressions.RegexOptions.Multiline);
+                }
+                if (!hasIniDir && !hasPhpModule)
+                {
+                    content += $"\n# PHP 7.4 Integration\nPHPIniDir \"{phpPathUrl}\"\nLoadModule php7_module \"{phpPathUrl}/php7apache2_4.dll\"\n";
+                }
+                if (!content.Contains("AddType application/x-httpd-php"))
+                {
+                    content += "\nAddType application/x-httpd-php .php\n";
                 }
 
                 File.WriteAllText(httpdConf, content);
@@ -660,13 +695,12 @@ namespace DesktopServerSetupPro
                     // Check if already optimized to avoid double processing or just overwrite
 
                     // 1. Extensions - Robust Regex approach
-                    // Enable extension_dir with ABSOLUTE path
+                    // Match ANY existing value, commented out or not, so installing into a
+                    // different folder (or renaming this one) repoints extension_dir instead
+                    // of leaving the old absolute path behind and breaking every extension.
                     string absoluteExtDir = Path.Combine(pDir, "ext").Replace("\\", "/");
                     ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                        @"^;\s*extension_dir\s*=\s*""ext""", $"extension_dir = \"{absoluteExtDir}\"",
-                        System.Text.RegularExpressions.RegexOptions.Multiline);
-                    ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                        @"^extension_dir\s*=\s*""ext""", $"extension_dir = \"{absoluteExtDir}\"",
+                        @"^[ \t]*;?[ \t]*extension_dir[ \t]*=[ \t]*""[^""]*""", $"extension_dir = \"{absoluteExtDir}\"",
                         System.Text.RegularExpressions.RegexOptions.Multiline);
 
                     // List of extensions to enable (handling both legacy php_*.dll and modern names)
