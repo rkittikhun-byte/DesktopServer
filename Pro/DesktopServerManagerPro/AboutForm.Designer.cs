@@ -96,7 +96,7 @@ partial class AboutForm
         lblCopyright.Name = "lblCopyright";
         lblCopyright.Size = new Size(425, 30);
         lblCopyright.TabIndex = 5;
-        lblCopyright.Text = "Copyright © 2026 DesktopServer Protocol";
+        lblCopyright.Text = "Copyright © 2026 Kirati Kittikhun";
         // 
         // btnOK
         // 

@@ -67,7 +67,7 @@ partial class AboutForm
         lblAuthors.Name = "lblAuthors";
         lblAuthors.Size = new Size(508, 32);
         lblAuthors.TabIndex = 4;
-        lblAuthors.Text = "Compiled by DesktopServer Manager Team";
+        lblAuthors.Text = "Compiled by Monrak Net";
         // 
         // txtDescription
         // 
@@ -96,7 +96,7 @@ partial class AboutForm
         lblCopyright.Name = "lblCopyright";
         lblCopyright.Size = new Size(425, 30);
         lblCopyright.TabIndex = 5;
-        lblCopyright.Text = "Copyright © 2026 DesktopServer Protocol";
+        lblCopyright.Text = "Copyright © 2026 Kirati Kittikhun";
         // 
         // btnOK
         // 

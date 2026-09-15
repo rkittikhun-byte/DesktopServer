@@ -25,7 +25,7 @@ public partial class AboutForm : Form
             lblAuthors.Text = $"Compiled by {assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? "Monrak Net"}";
             string desc = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? "Next-Gen Local Development Environment";
             txtDescription.Text = desc.Replace("|", Environment.NewLine);
-            lblCopyright.Text = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "Copyright © 2026 DesktopServer Protocol";
+            lblCopyright.Text = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "Copyright © 2026 Kirati Kittikhun";
         }
         catch (Exception)
         {
