@@ -9,11 +9,11 @@
     <AssemblyName>DesktopServerManager</AssemblyName>
     <RootNamespace>DesktopServerManager</RootNamespace>
     <Version>1.0.0</Version>
-    <Authors>MonrakNet Technology</Authors>
-    <Company>Monrak Net Co., Ltd.</Company>
+    <Authors>Kirati Kittikhun</Authors>
+    <Company>Monrak Net</Company>
     <Product>Desktop Server</Product>
     <Description>Next-Gen Local Standard Environment.|A powerful, easy-to-use professional stack for Windows users.|Features integrated Apache 2.4, MySQL 8.0, and a hybrid PHP engine supporting legacy and modern versions 7.4.|Built for performance, security, and the future of local development.</Description>
-    <Copyright>Copyright © 2026 Monrak Net Protocol</Copyright>
+    <Copyright>Copyright © 2026 Kirati Kittikhun</Copyright>
     <ApplicationIcon>Resources\app_icon.ico</ApplicationIcon>
   </PropertyGroup>
 

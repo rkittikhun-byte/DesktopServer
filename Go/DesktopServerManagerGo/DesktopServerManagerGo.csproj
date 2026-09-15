@@ -9,11 +9,11 @@
     <AssemblyName>DesktopServerManagerGo</AssemblyName>
     <RootNamespace>DesktopServerManagerGo</RootNamespace>
     <Version>1.0.0</Version>
-    <Authors>MonrakNet Technology</Authors>
-    <Company>Monrak Net Co., Ltd.</Company>
+    <Authors>Kirati Kittikhun</Authors>
+    <Company>Monrak Net</Company>
     <Product>Desktop Server Go</Product>
     <Description>Next-Gen AI-Ready PHP Environment powered by Go &amp; RoadRunner.|Ultra-fast Worker Mode, Integrated Vector DBs, and Zero-Config HTTPS.|The future of professional local development.</Description>
-    <Copyright>Copyright © 2026 Monrak Net Protocol</Copyright>
+    <Copyright>Copyright © 2026 Kirati Kittikhun</Copyright>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
   </PropertyGroup>
 

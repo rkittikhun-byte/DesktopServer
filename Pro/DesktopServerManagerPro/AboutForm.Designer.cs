@@ -67,7 +67,7 @@ partial class AboutForm
         lblAuthors.Name = "lblAuthors";
         lblAuthors.Size = new Size(403, 32);
         lblAuthors.TabIndex = 4;
-        lblAuthors.Text = "Compiled by Monrak Net Co., Ltd.";
+        lblAuthors.Text = "Compiled by Monrak Net";
         // 
         // txtDescription
         // 

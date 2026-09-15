@@ -810,7 +810,7 @@ namespace DesktopServerSetupPro
                 {
                     key.SetValue("DisplayName", "Monrak Desktop Server Pro");
                     key.SetValue("DisplayVersion", "1.0.1");
-                    key.SetValue("Publisher", "Monrak Net Co., Ltd.");
+                    key.SetValue("Publisher", "Monrak Net");
                     key.SetValue("UninstallString", $"\"{uninstallerPath}\" /uninstall");
                     key.SetValue("DisplayIcon", uninstallerPath);
                     key.SetValue("InstallLocation", installLocation);

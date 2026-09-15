@@ -22,10 +22,10 @@ public partial class AboutForm : Form
 
             lblProductName.Text = assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product ?? "Desktop Server Go";
             lblVersion.Text = $"Version {assembly.GetName().Version?.ToString() ?? "1.0.0"} (GO EDITION)";
-            lblAuthors.Text = $"Compiled by {assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? "Monrak Net Co., Ltd."}";
+            lblAuthors.Text = $"Compiled by {assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? "Monrak Net"}";
             string desc = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description ?? "Next-Gen AI-Ready PHP Environment powered by Go & RoadRunner.";
             txtDescription.Text = desc.Replace("|", Environment.NewLine);
-            lblCopyright.Text = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "Copyright © 2026 Monrak Net Protocol";
+            lblCopyright.Text = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? "Copyright © 2026 Kirati Kittikhun";
         }
         catch (Exception)
         {

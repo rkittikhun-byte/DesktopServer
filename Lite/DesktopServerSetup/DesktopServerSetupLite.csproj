@@ -9,9 +9,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <Product>Monrak Desktop Server Lite</Product>
-    <Company>Monrak Net Co., Ltd.</Company>
-    <Authors>MonrakNet Technology</Authors>
-    <Copyright>Copyright © 2026 Monrak Net Protocol</Copyright>
+    <Company>Monrak Net</Company>
+    <Authors>Kirati Kittikhun</Authors>
+    <Copyright>Copyright © 2026 Kirati Kittikhun</Copyright>
     <Description>Integrated Next-Gen AI-Ready PHP Environment Setup Engine (Lite Edition).</Description>
   </PropertyGroup>
 
