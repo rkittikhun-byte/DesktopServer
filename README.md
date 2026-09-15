@@ -11,10 +11,18 @@
 
 ---
 
-## 🏎️ Monrak DesktopServer Go!
-**High-Performance PHP & AI Development Engine**
+## 🧩 Three Editions, One Stack
 
-Developed by **Monrak Net Technology**, DesktopServer focuses on speed, stability, and professional-grade tools for both legacy maintenance and modern web application development.
+Developed by **Monrak Net Technology**, DesktopServer focuses on speed, stability, and professional-grade tools for both legacy maintenance and modern web application development. Every edition ships the same .NET 9 management console — pick the engine that matches your work.
+
+### 🪶 Lite — *Essential*
+Perfect for lightweight development and low memory usage. Apache 2.4, PHP 7.4 and MySQL 8.0 on a common path, with nothing extra to configure.
+
+### 🧰 Pro/Advance — *Professional*
+The ultimate power-user stack with multi-PHP and isolated environments. Switch between PHP 5.6, 7.4, 8.2 and 8.4 in real time, each on its own isolated process path, with VC++ 2012-2022 bundled.
+
+### 🏎️ Go! — *Next-Gen*
+Unleash pure performance with RoadRunner and PostgreSQL. Built for AI and modern PHP development — PHP 8.4, MariaDB 11, PostgreSQL 17 with pgvector, a real-time monitoring dashboard and automatic SSL CA trusting.
 
 ---
 
@@ -22,7 +30,7 @@ Developed by **Monrak Net Technology**, DesktopServer focuses on speed, stabilit
 
 We believe that professional development environments should be fast, reliable, and accessible on any hardware.
 
-*   **Modern Standards**: Out-of-the-box support for **PHP 8.4**, **PostgreSQL 17**, and **RoadRunner**.
+*   **Modern Standards**: **PHP 8.4** in Pro and Go!, with **PostgreSQL 17** and **RoadRunner** out of the box in Go!.
 *   **Native Execution**: Unlike Docker or Virtualization, DesktopServer runs natively on Windows for minimum overhead and maximum speed.
 *   **Hardware Optimized**: Designed to be lightweight and memory-efficient, giving older machines a "Pro" development experience.
 
@@ -30,28 +38,31 @@ We believe that professional development environments should be fast, reliable, 
 
 ## 🚀 Key Features
 
-*   **Unified Stack**: Pre-configured Apache 2.4, MariaDB 11, and modern PHP runtimes.
-*   **Go! Edition Engine**: Integrated **RoadRunner** high-performance PHP orchestrator for sub-5ms response times.
-*   **Database Excellence**: Professional support for MariaDB 11, MySQL 8.0, and **PostgreSQL 17 (AI-Ready)**.
+*   **Unified Stack**: Pre-configured Apache 2.4 with MySQL 8.0 *(Lite & Pro)*, or RoadRunner with MariaDB 11 *(Go!)*.
+*   **Multi-PHP Switching**: PHP 5.6, 7.4, 8.2 and 8.4 installed side by side, switchable in real time *(Pro)*.
+*   **Go! Edition Engine**: Integrated **RoadRunner** high-performance PHP orchestrator for sub-5ms response times *(Go!)*.
+*   **Database Excellence**: MySQL 8.0 and MariaDB 11, plus **PostgreSQL 17 (AI-Ready)** with pgvector *(Go!)*.
 *   **Native Local SSL**: Built-in Automated Certificate Authority (CA) and SSL/HTTPS management with SAN support—get green locks on `localhost` instantly.
-*   **Isolated Environments**: Prevents system-wide path conflicts with smart process isolation.
-*   **Real-time Monitoring**: Integrated dashboard for CPU and RAM performance tracking (Go! Edition).
+*   **Isolated Environments**: Prevents system-wide path conflicts with smart process isolation *(Pro & Go!)*.
+*   **Real-time Monitoring**: Integrated dashboard for CPU and RAM performance tracking *(Go!)*.
 *   **Premium Management**: Custom .NET 9 management UI with system tray integration and live log viewers.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### core
-*   **Management Console**: .NET 9.0 (C# / WinForms)
-*   **Web Orchestration**: Apache 2.4 & RoadRunner (Next-Gen PHP)
+Not every component ships in every edition — see the [comparison](#-version-comparison) for what each one includes.
+
+### Core
+*   **Management Console**: .NET 9.0 (C# / WinForms) — all editions
+*   **Web Orchestration**: Apache 2.4 *(Lite & Pro)* · RoadRunner *(Go!)*
 
 ### Database & Storage
-*   **RDBMS**: MariaDB 11, MySQL 8.0, PostgreSQL 17 (with pgvector for AI)
-*   **Tools**: phpMyAdmin & pgAdmin 4 Desktop Manager
+*   **RDBMS**: MySQL 8.0 *(Lite & Pro)* · MariaDB 11 and PostgreSQL 17 with pgvector *(Go!)*
+*   **Tools**: phpMyAdmin *(all editions)* · pgAdmin 4 Desktop Manager *(Go!)*
 
 ### Runtimes
-*   **PHP**: 5.6 / 7.4 / 8.2 / 8.4+ (Universal support)
+*   **PHP**: 7.4 *(Lite)* · 5.6 / 7.4 / 8.2 / 8.4 *(Pro)* · 8.4+ *(Go!)*
 *   **Runtime Libraries**: Bundled VC++ 2012-2022 redistributables
 
 ---
