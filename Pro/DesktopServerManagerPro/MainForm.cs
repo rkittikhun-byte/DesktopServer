@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -609,13 +609,23 @@ public partial class MainForm : Form
         }
     }
 
+    // This edition's own Run value. Lite and Pro both used to write
+    // "DesktopServerManager", so whichever was toggled last silently overwrote the
+    // other edition's entry and the checkbox reported the wrong state.
+    private const string StartupValueName = "MonrakManagerPro";
+    private static readonly string[] LegacyStartupValueNames = { "DesktopServerManager" };
+
     private bool IsRegisteredForStartup()
     {
         try
         {
             using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
             {
-                return key?.GetValue("DesktopServerManager") != null;
+                if (key == null) return false;
+                if (key.GetValue(StartupValueName) != null) return true;
+                foreach (var legacy in LegacyStartupValueNames)
+                    if (key.GetValue(legacy) != null) return true;
+                return false;
             }
         }
         catch { return false; }
@@ -627,14 +637,19 @@ public partial class MainForm : Form
         {
             using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
             {
+                // Always clear the legacy shared name, so an entry left by an older
+                // build or by the Lite edition cannot start a second copy.
+                foreach (var legacy in LegacyStartupValueNames)
+                    key?.DeleteValue(legacy, false);
+
                 if (enable)
                 {
-                    key?.SetValue("DesktopServerManager", $"\"{Application.ExecutablePath}\"");
+                    key?.SetValue(StartupValueName, $"\"{Application.ExecutablePath}\"");
                     Log("Enabled 'Start with Windows'.");
                 }
                 else
                 {
-                    key?.DeleteValue("DesktopServerManager", false);
+                    key?.DeleteValue(StartupValueName, false);
                     Log("Disabled 'Start with Windows'.");
                 }
             }

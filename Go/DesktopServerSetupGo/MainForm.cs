@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Reflection;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -649,11 +649,12 @@ del ""%~f0""
                 string ini = File.ReadAllText(iniPath);
                 
                 // 1. Set Absolute Extension Dir
+                // Match ANY existing value, commented out or not. The old pair of
+                // patterns only matched the stock "ext", so installing into a different
+                // folder - or renaming this one - left the previous absolute path in
+                // place and every extension silently failed to load.
                 ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^;\s*extension_dir\s*=\s*""ext""", $"extension_dir = \"{absoluteExtDir}\"",
-                    System.Text.RegularExpressions.RegexOptions.Multiline);
-                ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^extension_dir\s*=\s*""ext""", $"extension_dir = \"{absoluteExtDir}\"",
+                    @"^[ \t]*;?[ \t]*extension_dir[ \t]*=[ \t]*""[^""]*""", $"extension_dir = \"{absoluteExtDir}\"",
                     System.Text.RegularExpressions.RegexOptions.Multiline);
 
                 // 2. Enable DLL Extensions

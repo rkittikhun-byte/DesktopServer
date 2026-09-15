@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -518,11 +518,34 @@ namespace DesktopServerSetup
                 }
                 // -------------------------------------
 
-                // Add PHP Integration if not present
-                if (!content.Contains("php7_module"))
+                // Rewrite the PHP paths when they are already present instead of
+                // skipping. The old check only looked for php7_module, so reinstalling
+                // into a different folder left httpd.conf pointing at the previous
+                // location and Apache loaded PHP from a folder that no longer existed.
+                bool hasIniDir = System.Text.RegularExpressions.Regex.IsMatch(content,
+                    @"^\s*PHPIniDir\s+"".*""", System.Text.RegularExpressions.RegexOptions.Multiline);
+                bool hasPhpModule = System.Text.RegularExpressions.Regex.IsMatch(content,
+                    @"^\s*LoadModule\s+php\d?_module\s+"".*""", System.Text.RegularExpressions.RegexOptions.Multiline);
+
+                if (hasIniDir)
                 {
-                    string phpMod = $"\n# PHP 7.4 Integration\nPHPIniDir \"{phpPathUrl}\"\nLoadModule php7_module \"{phpPathUrl}/php7apache2_4.dll\"\nAddType application/x-httpd-php .php\n";
-                    content += phpMod;
+                    content = System.Text.RegularExpressions.Regex.Replace(content,
+                        @"^\s*PHPIniDir\s+"".*""", $"PHPIniDir \"{phpPathUrl}\"",
+                        System.Text.RegularExpressions.RegexOptions.Multiline);
+                }
+                if (hasPhpModule)
+                {
+                    content = System.Text.RegularExpressions.Regex.Replace(content,
+                        @"^\s*LoadModule\s+php\d?_module\s+"".*""", $"LoadModule php7_module \"{phpPathUrl}/php7apache2_4.dll\"",
+                        System.Text.RegularExpressions.RegexOptions.Multiline);
+                }
+                if (!hasIniDir && !hasPhpModule)
+                {
+                    content += $"\n# PHP 7.4 Integration\nPHPIniDir \"{phpPathUrl}\"\nLoadModule php7_module \"{phpPathUrl}/php7apache2_4.dll\"\n";
+                }
+                if (!content.Contains("AddType application/x-httpd-php"))
+                {
+                    content += "\nAddType application/x-httpd-php .php\n";
                 }
                 
                 File.WriteAllText(httpdConf, content);
@@ -532,39 +555,50 @@ namespace DesktopServerSetup
             if (!File.Exists(phpIni))
             {
                 string phpIniDev = Path.Combine(phpPath, "php.ini-development");
-                if (File.Exists(phpIniDev))
-                {
-                    File.Copy(phpIniDev, phpIni);
-                    string ini = File.ReadAllText(phpIni);
-                    
-                    // --- NEW: PHP Optimization ---
-                    // 1. Extensions
-                    ini = ini.Replace(";extension_dir = \"ext\"", "extension_dir = \"ext\"");
-                    ini = ini.Replace(";extension=mysqli", "extension=mysqli");
-                    ini = ini.Replace(";extension=pdo_mysql", "extension=pdo_mysql");
-                    ini = ini.Replace(";extension=curl", "extension=curl");
-                    ini = ini.Replace(";extension=gd2", "extension=gd2");
-                    ini = ini.Replace(";extension=mbstring", "extension=mbstring");
-                    ini = ini.Replace(";extension=exif", "extension=exif");
-                    ini = ini.Replace(";extension=openssl", "extension=openssl");
-                    ini = ini.Replace(";extension=soap", "extension=soap");
-                    ini = ini.Replace(";extension=zip", "extension=zip");
-                    
-                    // 2. Resource Limits
-                    ini = ini.Replace("memory_limit = 128M", "memory_limit = 512M");
-                    ini = ini.Replace("upload_max_filesize = 2M", "upload_max_filesize = 2048M");
-                    ini = ini.Replace("post_max_size = 8M", "post_max_size = 2048M");
-                    ini = ini.Replace("max_execution_time = 30", "max_execution_time = 600");
-                    ini = ini.Replace("max_input_time = 60", "max_input_time = 600");
+                if (File.Exists(phpIniDev)) File.Copy(phpIniDev, phpIni);
+            }
 
-                    // 3. Timezone & Errors
-                    ini = ini.Replace(";date.timezone =", "date.timezone = Asia/Bangkok");
-                    ini = ini.Replace("display_errors = Off", "display_errors = On");
-                    ini = ini.Replace("display_startup_errors = Off", "display_startup_errors = On");
-                    // -----------------------------
+            // Patch on every run, not only on first install. This whole block used to sit
+            // under "if php.ini is missing", so reinstalling over an existing folder kept
+            // whatever was already there, including paths left by the previous location.
+            if (File.Exists(phpIni))
+            {
+                string ini = File.ReadAllText(phpIni);
 
-                    File.WriteAllText(phpIni, ini);
-                }
+                // 1. Extensions - absolute path, matching any existing value. The stock
+                // relative "ext" resolves against Apache's working directory, not the PHP
+                // folder, so no extension loads at all.
+                string absoluteExtDir = Path.Combine(phpPath, "ext").Replace("\\", "/");
+                ini = System.Text.RegularExpressions.Regex.Replace(ini,
+                    @"^[ \t]*;?[ \t]*extension_dir[ \t]*=[ \t]*""[^""]*""", $"extension_dir = \"{absoluteExtDir}\"",
+                    System.Text.RegularExpressions.RegexOptions.Multiline);
+                
+                // --- NEW: PHP Optimization ---
+                // 1. Extensions
+                ini = ini.Replace(";extension=mysqli", "extension=mysqli");
+                ini = ini.Replace(";extension=pdo_mysql", "extension=pdo_mysql");
+                ini = ini.Replace(";extension=curl", "extension=curl");
+                ini = ini.Replace(";extension=gd2", "extension=gd2");
+                ini = ini.Replace(";extension=mbstring", "extension=mbstring");
+                ini = ini.Replace(";extension=exif", "extension=exif");
+                ini = ini.Replace(";extension=openssl", "extension=openssl");
+                ini = ini.Replace(";extension=soap", "extension=soap");
+                ini = ini.Replace(";extension=zip", "extension=zip");
+                
+                // 2. Resource Limits
+                ini = ini.Replace("memory_limit = 128M", "memory_limit = 512M");
+                ini = ini.Replace("upload_max_filesize = 2M", "upload_max_filesize = 2048M");
+                ini = ini.Replace("post_max_size = 8M", "post_max_size = 2048M");
+                ini = ini.Replace("max_execution_time = 30", "max_execution_time = 600");
+                ini = ini.Replace("max_input_time = 60", "max_input_time = 600");
+
+                // 3. Timezone & Errors
+                ini = ini.Replace(";date.timezone =", "date.timezone = Asia/Bangkok");
+                ini = ini.Replace("display_errors = Off", "display_errors = On");
+                ini = ini.Replace("display_startup_errors = Off", "display_startup_errors = On");
+                // -----------------------------
+
+                File.WriteAllText(phpIni, ini);
             }
 
             File.WriteAllText(Path.Combine(root, @"mysql80\my.ini"), $"[mysqld]\nbasedir=\"{Path.Combine(root, "mysql80").Replace("\\", "/")}\"\ndatadir=\"{Path.Combine(root, @"mysql80\data").Replace("\\", "/")}\"\nport=3306\n");
@@ -717,6 +751,20 @@ namespace DesktopServerSetup
             try
             {
                 Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\DesktopServerLite", false);
+            }
+            catch { }
+
+            // 2b. Remove the "Start with Windows" entry, including the names older
+            // builds wrote. Without this the value survives uninstall and Windows
+            // keeps trying to launch a deleted exe at every boot.
+            try
+            {
+                using (var runKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
+                {
+                    runKey?.DeleteValue("MonrakManagerLite", false);
+                    runKey?.DeleteValue("DesktopServerManager", false);
+                    runKey?.DeleteValue("MonrakDesktopServerLite", false);
+                }
             }
             catch { }
 

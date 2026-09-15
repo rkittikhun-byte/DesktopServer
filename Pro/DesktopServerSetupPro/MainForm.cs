@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO.Compression;
 using System.Reflection;
 
@@ -933,6 +933,19 @@ namespace DesktopServerSetupPro
             try
             {
                 Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\DesktopServerPro", false);
+            }
+            catch {}
+
+            // 2b. Remove the "Start with Windows" entry, including the name older
+            // builds shared with the Lite edition. Without this the value survives
+            // uninstall and Windows keeps launching a deleted exe at every boot.
+            try
+            {
+                using (var runKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
+                {
+                    runKey?.DeleteValue("MonrakManagerPro", false);
+                    runKey?.DeleteValue("DesktopServerManager", false);
+                }
             }
             catch {}
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -153,30 +153,8 @@ public partial class MainForm : Form
         btnOpenMySQLLog.Click += (s, e) => OpenMySQLLog();
 
         aboutUsToolStripMenuItem.Click += (s, e) => Process.Start(new ProcessStartInfo("https://monrak.net") { UseShellExecute = true });
-        chkStartWithWindows.CheckedChanged += ChkStartWithWindows_CheckedChanged;
     }
 
-    private void ChkStartWithWindows_CheckedChanged(object? sender, EventArgs e)
-    {
-        try
-        {
-            string runKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-            using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(runKey, true))
-            {
-                if (key != null)
-                {
-                    if (chkStartWithWindows.Checked)
-                        key.SetValue("MonrakDesktopServerLite", $"\"{Application.ExecutablePath}\" --autostart");
-                    else
-                        key.DeleteValue("MonrakDesktopServerLite", false);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log($"Failed to update startup registry: {ex.Message}");
-        }
-    }
 
 
     private void OpenMySQLLog()
@@ -410,13 +388,24 @@ public partial class MainForm : Form
         }
     }
 
+    // This edition's own Run value. Lite and Pro both used to write
+    // "DesktopServerManager", so each silently overwrote the other's entry, and Lite
+    // wrote "MonrakDesktopServerLite" a second time from a duplicate handler - two
+    // entries from one click, so the manager launched twice at every boot.
+    private const string StartupValueName = "MonrakManagerLite";
+    private static readonly string[] LegacyStartupValueNames = { "DesktopServerManager", "MonrakDesktopServerLite" };
+
     private bool IsRegisteredForStartup()
     {
         try
         {
             using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
             {
-                return key?.GetValue("DesktopServerManager") != null;
+                if (key == null) return false;
+                if (key.GetValue(StartupValueName) != null) return true;
+                foreach (var legacy in LegacyStartupValueNames)
+                    if (key.GetValue(legacy) != null) return true;
+                return false;
             }
         }
         catch { return false; }
@@ -428,14 +417,19 @@ public partial class MainForm : Form
         {
             using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
             {
+                // Always clear the legacy names, so an entry left by an older build
+                // (or by the other edition) cannot start a second copy.
+                foreach (var legacy in LegacyStartupValueNames)
+                    key?.DeleteValue(legacy, false);
+
                 if (enable)
                 {
-                    key?.SetValue("DesktopServerManager", $"\"{Application.ExecutablePath}\"");
+                    key?.SetValue(StartupValueName, $"\"{Application.ExecutablePath}\"");
                     Log("Enabled 'Start with Windows'.");
                 }
                 else
                 {
-                    key?.DeleteValue("DesktopServerManager", false);
+                    key?.DeleteValue(StartupValueName, false);
                     Log("Disabled 'Start with Windows'.");
                 }
             }
