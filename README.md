@@ -112,8 +112,7 @@ If **Monrak DesktopServer** helps you build better apps faster, consider support
 
 Released under the **[MIT License](LICENSE.txt)** — free to use, modify and distribute, provided the copyright notice is kept.
 
-Copyright © 2026 **Kirati Kittikhun**
-Developed for professional excellence by [Monrak Net Technology](https://github.com/monraknet).
+Copyright © 2026 **Kirati Kittikhun**, developed under the **Monrak Net** brand.
 
 > Bundled third-party components (Apache, PHP, MySQL, MariaDB, PostgreSQL, RoadRunner, phpMyAdmin) each keep their own licences.
 
