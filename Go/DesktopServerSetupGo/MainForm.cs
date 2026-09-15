@@ -953,7 +953,7 @@ plugin-dir={Path.Combine(mariaRoot, "lib", "plugin").Replace("\\", "/")}
     },
     ""config"": {
         ""platform"": {
-            ""php"": ""8.4.1""
+            ""php"": ""8.4.25""
         }
     }
 }";
