@@ -2,7 +2,7 @@
 
 [![Platform](https://img.shields.io/badge/platform-Windows-0078d7.svg)](https://www.microsoft.com/windows)
 [![PHP](https://img.shields.io/badge/PHP-8.4-777bb4.svg)](https://www.php.net/)
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](#license)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
 [![Status](https://img.shields.io/badge/status-Beta-orange.svg)](#)
 
 **Monrak DesktopServer** is a professional, native local development stack for Windows. It provides a streamlined, high-performance environment for modern PHP, MySQL, and PostgreSQL development—designed specifically for developers who prioritize execution speed and system efficiency.
@@ -110,8 +110,12 @@ If **Monrak DesktopServer** helps you build better apps faster, consider support
 
 ## 📜 License
 
-Copyright © 2026 **Monrak Net Protocol**. All rights reserved.
+Released under the **[MIT License](LICENSE.txt)** — free to use, modify and distribute, provided the copyright notice is kept.
+
+Copyright © 2026 **Kirati Kittikhun**
 Developed for professional excellence by [Monrak Net Technology](https://github.com/monraknet).
+
+> Bundled third-party components (Apache, PHP, MySQL, MariaDB, PostgreSQL, RoadRunner, phpMyAdmin) each keep their own licences.
 
 ---
 > [!NOTE]
