@@ -628,8 +628,9 @@ del ""%~f0""
 
             // Extensions that need to be enabled via extension= (DLL-loaded, not compiled-in)
             string[] dllExtensions = {
-                "curl", "gd", "mbstring", "exif", "openssl", "soap", "zip", "fileinfo", "intl", "sodium", "sockets",
-                "mysqli", "pdo_mysql", "pgsql", "pdo_pgsql"
+                "bz2", "curl", "exif", "fileinfo", "ftp", "gd", "gettext", "gmp", "intl",
+                "mbstring", "mysqli", "openssl", "pdo_mysql", "pdo_pgsql", "pdo_sqlite",
+                "pgsql", "soap", "sockets", "sodium", "sqlite3", "xsl", "zip"
             };
 
             if (!File.Exists(iniPath))
@@ -658,10 +659,15 @@ del ""%~f0""
                     System.Text.RegularExpressions.RegexOptions.Multiline);
 
                 // 2. Enable DLL Extensions
+                // Only enable what this build actually ships. Writing extension= for a
+                // DLL that is not there costs an "Unable to load dynamic library" warning
+                // on every single request.
+                string extDirPath = Path.Combine(phpRoot, "ext");
                 foreach (var ext in dllExtensions)
                 {
                     string pattern = $@"^\s*;?\s*extension\s*=\s*(php_)?{System.Text.RegularExpressions.Regex.Escape(ext)}(\.dll)?\s*(;.*)?$";
                     ini = System.Text.RegularExpressions.Regex.Replace(ini, pattern, "", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (!File.Exists(Path.Combine(extDirPath, $"php_{ext}.dll"))) continue;
                     ini += $"\r\nextension={ext}";
                 }
 
@@ -680,7 +686,7 @@ del ""%~f0""
                     @"^;?\s*display_errors\s*=\s*.*$", "display_errors = stderr",
                     System.Text.RegularExpressions.RegexOptions.Multiline);
                 ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^;?\s*display_startup_errors\s*=\s*.*$", "display_startup_errors = Off",
+                    @"^;?\s*display_startup_errors\s*=\s*.*$", "display_startup_errors = On",
                     System.Text.RegularExpressions.RegexOptions.Multiline);
                 
                 // 5. Enable OpCache
@@ -698,6 +704,20 @@ del ""%~f0""
                 // 6. Add Temporary, Session & CGI Paths
                 ini += $"\r\n\r\n[Session]\r\nsession.save_path = \"{absoluteSessionDir}\"\r\nupload_tmp_dir = \"{absoluteTmpDir}\"\r\nsys_temp_dir = \"{absoluteTmpDir}\"\r\n";
                 ini += $"\r\n[CGI]\r\ncgi.fix_pathinfo=1\r\n";
+
+                // --- Developer mode ---
+                // display_errors stays at stderr: under RoadRunner that lands in the
+                // server log where it is readable, rather than inside the response body.
+                ini += "\r\n; --- DesktopServer: developer mode ---\r\n";
+                ini += "error_reporting = E_ALL\r\n";
+                ini += "log_errors = On\r\n";
+                if (File.Exists(Path.Combine(phpRoot, "ext", "php_opcache.dll")))
+                {
+                    // Pick up edits on the next request instead of caching them for a
+                    // minute - the single most important opcache setting for development.
+                    ini += "opcache.validate_timestamps = 1\r\n";
+                    ini += "opcache.revalidate_freq = 0\r\n";
+                }
 
                 File.WriteAllText(iniPath, ini);
                 Log("SUCCESS: PHP 8.4 configured from template (High Performance Mode).");

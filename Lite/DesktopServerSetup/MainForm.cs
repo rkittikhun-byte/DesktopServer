@@ -573,30 +573,65 @@ namespace DesktopServerSetup
                     @"^[ \t]*;?[ \t]*extension_dir[ \t]*=[ \t]*""[^""]*""", $"extension_dir = \"{absoluteExtDir}\"",
                     System.Text.RegularExpressions.RegexOptions.Multiline);
                 
-                // --- NEW: PHP Optimization ---
-                // 1. Extensions
-                ini = ini.Replace(";extension=mysqli", "extension=mysqli");
-                ini = ini.Replace(";extension=pdo_mysql", "extension=pdo_mysql");
-                ini = ini.Replace(";extension=curl", "extension=curl");
-                ini = ini.Replace(";extension=gd2", "extension=gd2");
-                ini = ini.Replace(";extension=mbstring", "extension=mbstring");
-                ini = ini.Replace(";extension=exif", "extension=exif");
-                ini = ini.Replace(";extension=openssl", "extension=openssl");
-                ini = ini.Replace(";extension=soap", "extension=soap");
-                ini = ini.Replace(";extension=zip", "extension=zip");
-                
-                // 2. Resource Limits
-                ini = ini.Replace("memory_limit = 128M", "memory_limit = 512M");
-                ini = ini.Replace("upload_max_filesize = 2M", "upload_max_filesize = 2048M");
-                ini = ini.Replace("post_max_size = 8M", "post_max_size = 2048M");
-                ini = ini.Replace("max_execution_time = 30", "max_execution_time = 600");
-                ini = ini.Replace("max_input_time = 60", "max_input_time = 600");
+                // --- Extensions: enable everything this build actually ships ---
+                // Checking for the DLL first means a version that lacks one (PHP 7.4 has
+                // no php_zip.dll) never gets an "Unable to load dynamic library" warning
+                // on every request, and gd2 vs gd sorts itself out across versions.
+                string extDir = Path.Combine(phpPath, "ext");
+                string[] wantedExtensions = {
+                    "bz2", "curl", "exif", "fileinfo", "ftp", "gd", "gd2", "gettext", "gmp",
+                    "intl", "mbstring", "mysqli", "openssl", "pdo_mysql", "pdo_pgsql",
+                    "pdo_sqlite", "pgsql", "soap", "sockets", "sodium", "sqlite3", "xsl", "zip"
+                };
 
-                // 3. Timezone & Errors
-                ini = ini.Replace(";date.timezone =", "date.timezone = Asia/Bangkok");
-                ini = ini.Replace("display_errors = Off", "display_errors = On");
-                ini = ini.Replace("display_startup_errors = Off", "display_startup_errors = On");
-                // -----------------------------
+                // Drop anything we previously appended so reinstalling does not stack
+                // duplicate blocks on the end of the file.
+                ini = System.Text.RegularExpressions.Regex.Replace(ini,
+                    @"(?s)\r?\n; --- DesktopServer: .*$", "");
+
+                var enabledExtensions = new List<string>();
+                foreach (var ext in wantedExtensions)
+                {
+                    if (!File.Exists(Path.Combine(extDir, $"php_{ext}.dll"))) continue;
+                    ini = System.Text.RegularExpressions.Regex.Replace(ini,
+                        $@"^[ \t]*;?[ \t]*extension[ \t]*=[ \t]*(php_)?{ext}(\.dll)?[ \t]*(;.*)?$", "",
+                        System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    enabledExtensions.Add(ext);
+                }
+
+                bool hasOpcache = File.Exists(Path.Combine(extDir, "php_opcache.dll"));
+                ini = System.Text.RegularExpressions.Regex.Replace(ini,
+                    @"^[ \t]*;?[ \t]*zend_extension[ \t]*=[ \t]*(php_)?opcache(\.dll)?[ \t]*$", "",
+                    System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                var block = new System.Text.StringBuilder();
+                block.Append("\r\n; --- DesktopServer: extensions ---\r\n");
+                foreach (var ext in enabledExtensions) block.Append($"extension={ext}\r\n");
+                // opcache is a Zend extension; loading it with extension= silently fails.
+                if (hasOpcache) block.Append("zend_extension=opcache\r\n");
+
+                // --- Developer mode ---
+                block.Append("\r\n; --- DesktopServer: developer mode ---\r\n");
+                block.Append("display_errors = On\r\n");
+                block.Append("display_startup_errors = On\r\n");
+                block.Append("error_reporting = E_ALL\r\n");
+                block.Append("log_errors = On\r\n");
+                block.Append("memory_limit = 512M\r\n");
+                block.Append("upload_max_filesize = 2048M\r\n");
+                block.Append("post_max_size = 2048M\r\n");
+                block.Append("max_execution_time = 600\r\n");
+                block.Append("max_input_time = 600\r\n");
+                block.Append("date.timezone = Asia/Bangkok\r\n");
+                if (hasOpcache)
+                {
+                    block.Append("opcache.enable = 1\r\n");
+                    block.Append("opcache.enable_cli = 1\r\n");
+                    // Pick up edits on the next request instead of caching them for a
+                    // minute - the single most important opcache setting for development.
+                    block.Append("opcache.validate_timestamps = 1\r\n");
+                    block.Append("opcache.revalidate_freq = 0\r\n");
+                }
+                ini += block.ToString();
 
                 File.WriteAllText(phpIni, ini);
             }
