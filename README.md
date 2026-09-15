@@ -61,7 +61,7 @@ We believe that professional development environments should be fast, reliable, 
 | Feature | Lite | Pro/Advance | Go! Edition |
 | :--- | :---: | :---: | :---: |
 | **Web Server** | Apache 2.4 | Apache 2.4 | **RoadRunner** |
-| **PHP Support** | Single (7.4) | Multi (5.6-8.2) | **Modern (8.4+)** |
+| **PHP Support** | Single (7.4) | Multi (5.6 / 7.4 / 8.2 / 8.4) | **Modern (8.4+)** |
 | **DB (SQL)** | MySQL 8.0 | MySQL 8.0 | **MariaDB 11** |
 | **DB (Postgre)** | ❌ | ❌ | **PostgreSQL 17** |
 | **AI Hub** | ❌ | ❌ | **Integrated** |
