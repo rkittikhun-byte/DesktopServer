@@ -22,15 +22,15 @@ publish_output/
 *.cab
 *.pdb
 
-# Ignore specific large resources by default, but allow tracking via Git LFS
-# in the Resources directories.
-*.exe
-*.zip
-*.7z
-*.7Z
-!**/Resources/*.exe
-!**/Resources/*.zip
-!**/Resources/*.7z
+# Binary dependencies are NOT committed. Download them from the official
+# sources listed in BUILD_GUIDE.md and drop them into the Resources folders.
+
+# Extracted stacks the Go installer embeds at build time - fetch, don't commit.
+**/Resources/apache_unzipped/
+**/Resources/php_unzipped/
+
+# The one exception: the small OpenSSL helper used to mint local SSL certs.
+!Go/DesktopServerSetupGo/Resources/openssl.exe
 
 # Specific build artifacts and temporary files
 *.cache
