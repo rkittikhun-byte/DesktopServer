@@ -16,6 +16,7 @@
     <Description>Integrated Next-Gen AI-Ready PHP Environment Setup Engine.</Description>
     <Copyright>Copyright © 2026 Kirati Kittikhun</Copyright>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

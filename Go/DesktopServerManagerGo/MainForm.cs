@@ -409,9 +409,22 @@ public partial class MainForm : Form
                 procName = "mariadbd";
                 break;
             case "PostgreSQL":
-                exePath = Path.Combine(rootPath, "postgres", "bin", "postgres.exe");
-                args = "-D \"../data\"";
+                exePath = Path.Combine(rootPath, "postgres", "bin", "pg_ctl.exe");
+                args = "start -D \"../data\" -w";
                 procName = "postgres";
+                
+                string pidFile = Path.Combine(rootPath, "postgres", "data", "postmaster.pid");
+                if (File.Exists(pidFile))
+                {
+                    try
+                    {
+                        if (Process.GetProcessesByName("postgres").Length == 0)
+                        {
+                            File.Delete(pidFile);
+                        }
+                    }
+                    catch { }
+                }
                 break;
         }
 
@@ -503,6 +516,25 @@ public partial class MainForm : Form
 
         else
         {
+            if (name == "PostgreSQL")
+            {
+                string pgCtl = Path.Combine(rootPath, "postgres", "bin", "pg_ctl.exe");
+                if (File.Exists(pgCtl))
+                {
+                    try
+                    {
+                        var psiStop = new ProcessStartInfo(pgCtl, "stop -D \"../data\" -m fast")
+                        {
+                            WorkingDirectory = Path.GetDirectoryName(pgCtl),
+                            CreateNoWindow = true,
+                            UseShellExecute = false
+                        };
+                        Process.Start(psiStop)?.WaitForExit(5000);
+                    }
+                    catch { }
+                }
+            }
+
             // Stop logic
             foreach (var p in Process.GetProcessesByName(procName))
             {

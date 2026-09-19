@@ -793,6 +793,7 @@ partial class MainForm
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "DesktopServer Go";
+        Icon = (Icon)resources.GetObject("notifyIcon.Icon");
         trayMenu.ResumeLayout(false);
         pnlSidebar.ResumeLayout(false);
         grpSSL.ResumeLayout(false);
