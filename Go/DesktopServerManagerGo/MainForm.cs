@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Diagnostics;
 
 namespace DesktopServerManagerGo;
@@ -389,6 +389,16 @@ public partial class MainForm : Form
         await ToggleService("PostgreSQL", lblPostgresStatus, btnStartPostgres);
     }
 
+    // The port each service must end up listening on, so "started" can be checked
+    // rather than assumed.
+    private static int PortOf(string name) => name switch
+    {
+        "RoadRunner" => 8080,
+        "MariaDB"    => 3306,
+        "PostgreSQL" => 5432,
+        _            => 0,
+    };
+
     private async Task ToggleService(string name, Label statusLabel, Button ctrlButton)
     {
         bool isStarting = ctrlButton.Text == "START";
@@ -493,7 +503,28 @@ public partial class MainForm : Form
                         Process.Start(psi);
                     }
                     
-                    await Task.Delay(1500); // Give it time to bind
+                    // Launching is not starting. This used to wait a moment and then
+                    // claim success, so a service that died on a taken port still showed
+                    // green - and for PostgreSQL the process name is shared with pgAdmin,
+                    // so even the old name-only check would have been wrong.
+                    string watched = name == "PostgreSQL" ? "postgres" : procName;
+                    string? problem = await ServiceProcess.ConfirmStarted(rootPath, watched, PortOf(name));
+
+                    if (problem != null)
+                    {
+                        string? holder = ServiceProcess.ForeignPortHolder(
+                            PortOf(name), rootPath, "rr", "httpd", "nginx", "mysqld", "mariadbd", "postgres");
+                        statusLabel.Text = "Error";
+                        statusLabel.ForeColor = Color.OrangeRed;
+                        ctrlButton.Enabled = true;
+                        MessageBox.Show(
+                            holder != null
+                                ? $"{name} could not start: port {PortOf(name)} is already taken by {holder}."
+                                : $"{name} could not start. {problem}",
+                            "Service did not start", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
                     statusLabel.Text = "Running";
                     statusLabel.ForeColor = Color.FromArgb(166, 227, 161);
                     ctrlButton.Text = "STOP";
@@ -535,11 +566,9 @@ public partial class MainForm : Form
                 }
             }
 
-            // Stop logic
-            foreach (var p in Process.GetProcessesByName(procName))
-            {
-                try { p.Kill(); } catch { }
-            }
+            // Only this installation's. Killing by name alone would take down another
+            // DesktopServer's database or web server along with this one.
+            ServiceProcess.StopOwned(rootPath, procName);
 
 
 

@@ -242,9 +242,20 @@ public partial class MainForm : Form
         }
     }
 
+    // Watches for a moment after launch and says in the log what really happened.
+    private async Task VerifyStarted(string service, string processName, int port)
+    {
+        string? problem = await ServiceProcess.ConfirmStarted(rootPath, processName, port);
+        if (problem == null) Log($"{service} is up, listening on port {port}.");
+        else Log($"ERROR: {problem}");
+    }
+
     private bool IsProcessRunning(string name)
     {
-        return Process.GetProcessesByName(name).Length > 0;
+        // Scoped to this installation: another DesktopServer's httpd.exe used to
+        // make this return true and the status read "Running" for a server this
+        // manager had never started.
+        return ServiceProcess.IsRunning(rootPath, name);
     }
 
     private void ActionService(string service, string action)
@@ -260,9 +271,10 @@ public partial class MainForm : Form
             if (action == "start")
             {
                 // Check if port 80 is in use
-                if (IsPortInUse(80))
+                string? holder80 = ServiceProcess.ForeignPortHolder(80, rootPath, "httpd", "nginx", "Caddy");
+                if (holder80 != null)
                 {
-                    Log("ERROR: Port 80 is already in use. Please close other web servers (like IIS or XAMPP).");
+                    Log($"ERROR: port 80 is already taken by {holder80}. Stop it and try again.");
                     return;
                 }
                 args = ""; // Just run httpd.exe directly
@@ -281,9 +293,10 @@ public partial class MainForm : Form
             if (action == "start")
             {
                 // Check if port 3306 is in use
-                if (IsPortInUse(3306))
+                string? holder3306 = ServiceProcess.ForeignPortHolder(3306, rootPath, "mysqld", "mariadbd");
+                if (holder3306 != null)
                 {
-                    Log("ERROR: Port 3306 is already in use. Please close other MySQL instances.");
+                    Log($"ERROR: port 3306 is already taken by {holder3306}. Stop it and try again.");
                     return;
                 }
 
@@ -322,6 +335,12 @@ public partial class MainForm : Form
                 process.BeginErrorReadLine();
 
                 Log($"{service} process launched.");
+
+                // Launching is not starting. Apache exits within a second when it
+                // cannot bind its port, and the status used to say "Running" anyway.
+                _ = VerifyStarted(service,
+                                  service == "apache" ? "httpd" : "mysqld",
+                                  service == "apache" ? 80 : 3306);
             }
         }
         catch (Exception ex)
@@ -333,10 +352,9 @@ public partial class MainForm : Form
     private void StopProcess(string name)
     {
         Log($"Stopping {name}...");
-        foreach (var process in Process.GetProcessesByName(name))
-        {
-            try { process?.Kill(); Log($"{name} process killed."); } catch (Exception ex) { Log($"Failed to kill {name}: {ex.Message}"); }
-        }
+        // Only ours. This used to kill every process of that name on the machine,
+        // so stopping this server would take another installation's down with it.
+        ServiceProcess.StopOwned(rootPath, name, Log);
     }
 
     private void StopMySQL()
