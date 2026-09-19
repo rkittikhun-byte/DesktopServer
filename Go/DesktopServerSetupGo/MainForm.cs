@@ -20,7 +20,29 @@ public partial class MainForm : Form
         
         if (args.Contains("/uninstall"))
         {
-            RunUninstall().GetAwaiter().GetResult();
+            string self = Application.ExecutablePath;
+            string tempDir = Path.GetTempPath();
+            
+            // Self-relocation: if running from install dir, copy to TEMP and relaunch
+            // This prevents the Uninstaller.exe in the install folder from being locked
+            if (!self.StartsWith(tempDir, StringComparison.OrdinalIgnoreCase))
+            {
+                string installRoot = Path.GetDirectoryName(self) ?? "";
+                string tempSelf = Path.Combine(tempDir, "monrak_go_uninstaller.exe");
+                try { File.Copy(self, tempSelf, true); } catch { }
+                
+                Process.Start(new ProcessStartInfo(tempSelf, $"/uninstall \"{installRoot}\"")
+                {
+                    UseShellExecute = true,
+                    WorkingDirectory = tempDir
+                });
+                Environment.Exit(0);
+                return;
+            }
+            
+            // Running from TEMP — get install root from args
+            string root = args.Where(a => a != "/uninstall").FirstOrDefault() ?? "";
+            RunUninstall(root).GetAwaiter().GetResult();
             Environment.Exit(0);
         }
 
@@ -246,10 +268,12 @@ public partial class MainForm : Form
     private void KillRunningProcesses()
     {
         string[] procs = { 
-            "DesktopServerManagerGo", "DesktopServerManager", "DesktopServerManagerPro",
+            "DesktopServerManagerGo", "DesktopServerManager", "DesktopServerManagerLite", "DesktopServerManagerPro",
             "rr", "mariadbd", "mysqld", "postgres", "pg_ctl", "php-cgi", "pgAdmin4", 
-            "mysql", "mariadb", "psql", "Standard.exe"
+            "mysql", "mariadb", "psql", "Standard.exe", "Uninstaller", "php", "httpd"
         };
+        int currentPid = Process.GetCurrentProcess().Id;
+
         foreach (var pName in procs)
         {
             try
@@ -260,7 +284,15 @@ public partial class MainForm : Form
                     Log($"Terminating {runningProcs.Length} instance(s) of: {pName}...");
                     foreach (var p in runningProcs)
                     {
-                        try { p.Kill(); p.WaitForExit(3000); } catch { }
+                        try 
+                        { 
+                            if (p.Id == currentPid) continue;
+
+                            // Use tree killing to ensure children are gone
+                            p.Kill(true); 
+                            p.WaitForExit(3000); 
+                        } 
+                        catch { }
                     }
                 }
             }
@@ -473,6 +505,22 @@ public partial class MainForm : Form
         });
     }
 
+    // Puts the CA list next to PHP's own openssl.cnf; PhpIniPatcher points curl.cainfo at it
+    // when it is there. A build made without cacert.pem still installs, just without it.
+    private void InstallCaBundle(string phpDir)
+    {
+        try
+        {
+            string sslDir = Path.Combine(phpDir, "extras", "ssl");
+            Directory.CreateDirectory(sslDir);
+            ExtractResourceToFile("cacert.pem", Path.Combine(sslDir, "cacert.pem"));
+        }
+        catch (Exception ex)
+        {
+            Log($"Warning: CA bundle not installed, cURL will reject https:// ({ex.Message})");
+        }
+    }
+
     private void CreateShortcut(string targetPath, string shortcutName, string description, string parentFolder)
     {
         try
@@ -538,27 +586,32 @@ public partial class MainForm : Form
         catch (Exception ex) { Log($"Registry failed: {ex.Message}"); throw; } // Throw to trigger retry
     }
 
-    private async Task RunUninstall()
+    private async Task RunUninstall(string root)
     {
         try
         {
-            string self = Application.ExecutablePath;
-            string root = Path.GetDirectoryName(self) ?? "";
             
             if (MessageBox.Show("Are you sure you want to uninstall Monrak Desktop Server Go!?\n\nThis will stop all running services and remove all application files.", "Uninstall", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             {
                 return;
             }
 
-            // 1. Kill Processes
+            // 1. Kill Processes — do it twice for thoroughness
             KillRunningProcesses();
-            // Wait a bit more for OS to release locks
             System.Threading.Thread.Sleep(2000);
+            KillRunningProcesses();
+            System.Threading.Thread.Sleep(1000);
 
             // 2. Remove Registry
             try
             {
                 Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\DesktopServerGo", false);
+                
+                // Also cleanup startup registry
+                using (var runKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
+                {
+                    runKey?.DeleteValue("MonrakManagerGo", false);
+                }
             }
             catch { }
 
@@ -584,30 +637,118 @@ public partial class MainForm : Form
             }
             catch { }
 
-            // 4. Self-Cleanup Script
             if (!string.IsNullOrEmpty(root) && Directory.Exists(root))
             {
+                // 4. Pre-cleanup: delete everything directly
+                // Since we're running from TEMP, nothing in the install folder is locked
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch
+                {
+                    // If full delete fails, try individual items
+                    try
+                    {
+                        foreach (var dir in Directory.GetDirectories(root))
+                            try { Directory.Delete(dir, true); } catch { }
+                        foreach (var file in Directory.GetFiles(root))
+                            try { File.Delete(file); } catch { }
+                        try { Directory.Delete(root, false); } catch { }
+                    }
+                    catch { }
+                }
+
+                // If pre-cleanup succeeded, no need for batch fallback
+                if (!Directory.Exists(root))
+                {
+                    MessageBox.Show("Uninstallation complete! All files have been removed.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Environment.Exit(0);
+                    return;
+                }
+
+                // 5. Create batch cleanup for any remaining files (safety net)
                 string tempDir = Path.GetTempPath();
                 string batchFile = Path.Combine(tempDir, "monrak_go_cleanup.bat");
+                int currentPid = Process.GetCurrentProcess().Id;
                 
                 await RetryAction(async () => {
                     await Task.Run(() => File.WriteAllText(batchFile, $@"
 @echo off
-timeout /t 3 /nobreak >nul
-:retry
-rmdir /s /q ""{root}""
-if exist ""{root}"" (
-    timeout /t 2 /nobreak >nul
-    goto retry
+cd /d %TEMP%
+set PID={currentPid}
+set RETRIES=0
+set MAX_RETRIES=30
+
+:wait
+tasklist /FI ""PID eq %PID%"" 2>NUL | find /I ""%PID%"" >NUL
+if %ERRORLEVEL%==0 (
+    timeout /t 1 /nobreak >nul
+    goto wait
 )
+
+timeout /t 2 /nobreak >nul
+
+:retry
+set /a RETRIES+=1
+if %RETRIES% GTR %MAX_RETRIES% goto done
+
+:: === LEVEL 1 (Retries 1-5): Simple delete ===
+del /f /s /q ""{root}\*"" >nul 2>&1
+for /d %%i in (""{root}\*"") do rmdir /s /q ""%%i"" >nul 2>&1
+rmdir /s /q ""{root}"" >nul 2>&1
+if not exist ""{root}"" goto done
+
+:: === LEVEL 2 (Retries 6+): Force kill processes ===
+if %RETRIES% GEQ 6 (
+    taskkill /f /im DesktopServerManagerGo.exe >nul 2>&1
+    taskkill /f /im rr.exe >nul 2>&1
+    taskkill /f /im php-cgi.exe >nul 2>&1
+    taskkill /f /im php.exe >nul 2>&1
+    taskkill /f /im mariadbd.exe >nul 2>&1
+    taskkill /f /im mysqld.exe >nul 2>&1
+    taskkill /f /im postgres.exe >nul 2>&1
+    taskkill /f /im pg_ctl.exe >nul 2>&1
+    taskkill /f /im httpd.exe >nul 2>&1
+    timeout /t 1 /nobreak >nul
+    del /f /s /q ""{root}\*"" >nul 2>&1
+    for /d %%i in (""{root}\*"") do rmdir /s /q ""%%i"" >nul 2>&1
+    rmdir /s /q ""{root}"" >nul 2>&1
+    if not exist ""{root}"" goto done
+)
+
+:: === LEVEL 3 (Retries 16+): Strip attributes + force delete ===
+if %RETRIES% GEQ 16 (
+    attrib -r -h -s ""{root}\*"" /s /d >nul 2>&1
+    del /f /s /q ""{root}\*"" >nul 2>&1
+    for /d %%i in (""{root}\*"") do rmdir /s /q ""%%i"" >nul 2>&1
+    rmdir /s /q ""{root}"" >nul 2>&1
+    if not exist ""{root}"" goto done
+)
+
+timeout /t 2 /nobreak >nul
+goto retry
+
+:done
 del ""%~f0""
 "));
                 });
                 
-                Process.Start(new ProcessStartInfo(batchFile) { CreateNoWindow = true, UseShellExecute = true, WindowStyle = ProcessWindowStyle.Hidden });
+                MessageBox.Show("Uninstallation completed. The application folder will be removed shortly.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                Process.Start(new ProcessStartInfo(batchFile) 
+                { 
+                    CreateNoWindow = true, 
+                    UseShellExecute = true, 
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    WorkingDirectory = tempDir 
+                });
+                
+                Environment.Exit(0);
             }
             
             MessageBox.Show("Uninstallation complete.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            Environment.Exit(0);
         }
         catch (Exception ex)
         {
@@ -647,77 +788,24 @@ del ""%~f0""
             if (File.Exists(iniPath))
             {
                 // Template exists — patch it
-                string ini = File.ReadAllText(iniPath);
-                
-                // 1. Set Absolute Extension Dir
-                // Match ANY existing value, commented out or not. The old pair of
-                // patterns only matched the stock "ext", so installing into a different
-                // folder - or renaming this one - left the previous absolute path in
-                // place and every extension silently failed to load.
-                ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^[ \t]*;?[ \t]*extension_dir[ \t]*=[ \t]*""[^""]*""", $"extension_dir = \"{absoluteExtDir}\"",
-                    System.Text.RegularExpressions.RegexOptions.Multiline);
-
-                // 2. Enable DLL Extensions
-                // Only enable what this build actually ships. Writing extension= for a
-                // DLL that is not there costs an "Unable to load dynamic library" warning
-                // on every single request.
-                string extDirPath = Path.Combine(phpRoot, "ext");
-                foreach (var ext in dllExtensions)
-                {
-                    string pattern = $@"^\s*;?\s*extension\s*=\s*(php_)?{System.Text.RegularExpressions.Regex.Escape(ext)}(\.dll)?\s*(;.*)?$";
-                    ini = System.Text.RegularExpressions.Regex.Replace(ini, pattern, "", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                    if (!File.Exists(Path.Combine(extDirPath, $"php_{ext}.dll"))) continue;
-                    ini += $"\r\nextension={ext}";
-                }
-
-                // 3. Resource Limits
-                ini = ini.Replace("memory_limit = 128M", "memory_limit = 1024M");
-                ini = ini.Replace("upload_max_filesize = 2M", "upload_max_filesize = 4096M");
-                ini = ini.Replace("post_max_size = 8M", "post_max_size = 4096M");
-                ini = ini.Replace("max_execution_time = 30", "max_execution_time = 3600");
-                ini = ini.Replace("max_input_time = 60", "max_input_time = 3600");
-
-                // 4. Timezone & Errors
-                ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^;\s*date\.timezone\s*=", "date.timezone = Asia/Bangkok",
-                    System.Text.RegularExpressions.RegexOptions.Multiline);
-                ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^;?\s*display_errors\s*=\s*.*$", "display_errors = stderr",
-                    System.Text.RegularExpressions.RegexOptions.Multiline);
-                ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^;?\s*display_startup_errors\s*=\s*.*$", "display_startup_errors = On",
-                    System.Text.RegularExpressions.RegexOptions.Multiline);
-                
-                // 5. Enable OpCache
-                ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                    @"^;\s*zend_extension\s*=\s*opcache", "zend_extension=opcache",
-                    System.Text.RegularExpressions.RegexOptions.Multiline);
-                if (ini.Contains("[opcache]"))
-                {
-                    ini = ini.Replace(";opcache.enable=1", "opcache.enable=1\nopcache.enable_cli=1");
-                    ini = ini.Replace(";opcache.memory_consumption=128", "opcache.memory_consumption=256");
-                    ini = ini.Replace(";opcache.interned_strings_buffer=8", "opcache.interned_strings_buffer=16");
-                    ini = ini.Replace(";opcache.max_accelerated_files=10000", "opcache.max_accelerated_files=20000");
-                }
-
-                // 6. Add Temporary, Session & CGI Paths
-                ini += $"\r\n\r\n[Session]\r\nsession.save_path = \"{absoluteSessionDir}\"\r\nupload_tmp_dir = \"{absoluteTmpDir}\"\r\nsys_temp_dir = \"{absoluteTmpDir}\"\r\n";
-                ini += $"\r\n[CGI]\r\ncgi.fix_pathinfo=1\r\n";
-
-                // --- Developer mode ---
-                // display_errors stays at stderr: under RoadRunner that lands in the
-                // server log where it is readable, rather than inside the response body.
-                ini += "\r\n; --- DesktopServer: developer mode ---\r\n";
-                ini += "error_reporting = E_ALL\r\n";
-                ini += "log_errors = On\r\n";
-                if (File.Exists(Path.Combine(phpRoot, "ext", "php_opcache.dll")))
-                {
-                    // Pick up edits on the next request instead of caching them for a
-                    // minute - the single most important opcache setting for development.
-                    ini += "opcache.validate_timestamps = 1\r\n";
-                    ini += "opcache.revalidate_freq = 0\r\n";
-                }
+                // display_errors: "stderr" keeps a warning raised inside worker.php off STDOUT,
+                // which is RoadRunner's pipe to that worker. Pages run under php-cgi, where
+                // PHP treats "stderr" the same as "On", so their errors still show in the browser.
+                InstallCaBundle(phpRoot);
+                string ini = PhpIniPatcher.Apply(File.ReadAllText(iniPath), phpRoot,
+                    ("display_errors", "stderr"),
+                    ("memory_limit", "1024M"),
+                    ("upload_max_filesize", "4096M"),
+                    ("post_max_size", "4096M"),
+                    ("max_execution_time", "3600"),
+                    ("max_input_time", "3600"),
+                    ("opcache.memory_consumption", "256"),
+                    ("opcache.interned_strings_buffer", "16"),
+                    ("opcache.max_accelerated_files", "20000"),
+                    ("session.save_path", $"\"{absoluteSessionDir}\""),
+                    ("upload_tmp_dir", $"\"{absoluteTmpDir}\""),
+                    ("sys_temp_dir", $"\"{absoluteTmpDir}\""),
+                    ("cgi.fix_pathinfo", "1"));
 
                 File.WriteAllText(iniPath, ini);
                 Log("SUCCESS: PHP 8.4 configured from template (High Performance Mode).");
@@ -767,6 +855,15 @@ del ""%~f0""
                 sb.AppendLine();
                 sb.AppendLine("[CGI]");
                 sb.AppendLine("cgi.fix_pathinfo=1");
+
+                InstallCaBundle(phpRoot);
+                string caBundle = Path.Combine(phpRoot, "extras", "ssl", "cacert.pem");
+                if (File.Exists(caBundle))
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("[curl]");
+                    sb.AppendLine($"curl.cainfo = \"{caBundle.Replace("\\", "/")}\"");
+                }
 
                 File.WriteAllText(iniPath, sb.ToString());
                 Log("SUCCESS: PHP 8.4 configured with generated php.ini (High Performance Mode).");

@@ -374,6 +374,22 @@ namespace DesktopServerSetupPro
         }
     }
 
+    // Puts the CA list next to PHP's own openssl.cnf; PhpIniPatcher points curl.cainfo at it
+    // when it is there. A build made without cacert.pem still installs, just without it.
+    private void InstallCaBundle(string phpDir)
+    {
+        try
+        {
+            string sslDir = Path.Combine(phpDir, "extras", "ssl");
+            Directory.CreateDirectory(sslDir);
+            ExtractResourceToFile("cacert.pem", Path.Combine(sslDir, "cacert.pem"));
+        }
+        catch (Exception ex)
+        {
+            Log($"Warning: CA bundle not installed, cURL will reject https:// ({ex.Message})");
+        }
+    }
+
     private void CreateShortcut(string targetPath, string shortcutName, string description, string parentFolder)
     {
         try
@@ -691,80 +707,11 @@ namespace DesktopServerSetupPro
 
                 if (File.Exists(iniPath))
                 {
-                    string ini = File.ReadAllText(iniPath);
-                    // Check if already optimized to avoid double processing or just overwrite
-
-                    // 1. Extensions - Robust Regex approach
-                    // Match ANY existing value, commented out or not, so installing into a
-                    // different folder (or renaming this one) repoints extension_dir instead
-                    // of leaving the old absolute path behind and breaking every extension.
-                    string absoluteExtDir = Path.Combine(pDir, "ext").Replace("\\", "/");
-                    ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                        @"^[ \t]*;?[ \t]*extension_dir[ \t]*=[ \t]*""[^""]*""", $"extension_dir = \"{absoluteExtDir}\"",
-                        System.Text.RegularExpressions.RegexOptions.Multiline);
-
-                    // --- Extensions: enable everything this build actually ships ---
-                    // Pro installs four PHP versions side by side and they do not carry
-                    // the same set - 7.4 has no php_zip.dll and calls GD "gd2" where 8.x
-                    // calls it "gd". Checking for the DLL keeps each version to what it
-                    // really has, instead of logging "Unable to load dynamic library".
-                    string extDir = Path.Combine(pDir, "ext");
-                    string[] wantedExtensions = {
-                        "bz2", "curl", "exif", "fileinfo", "ftp", "gd", "gd2", "gettext", "gmp",
-                        "intl", "mbstring", "mysqli", "openssl", "pdo_mysql", "pdo_pgsql",
-                        "pdo_sqlite", "pgsql", "soap", "sockets", "sodium", "sqlite3", "xsl", "zip"
-                    };
-
-                    // Drop anything a previous run appended so reinstalling does not stack
-                    // duplicate blocks on the end of the file.
-                    ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                        @"(?s)\r?\n; --- DesktopServer: .*$", "");
-
-                    var enabledExtensions = new List<string>();
-                    foreach (var ext in wantedExtensions)
-                    {
-                        if (!File.Exists(Path.Combine(extDir, $"php_{ext}.dll"))) continue;
-                        ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                            $@"^[ \t]*;?[ \t]*extension[ \t]*=[ \t]*(php_)?{ext}(\.dll)?[ \t]*(;.*)?$", "",
-                            System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                        enabledExtensions.Add(ext);
-                    }
-
-                    bool hasOpcache = File.Exists(Path.Combine(extDir, "php_opcache.dll"));
-                    ini = System.Text.RegularExpressions.Regex.Replace(ini,
-                        @"^[ \t]*;?[ \t]*zend_extension[ \t]*=[ \t]*(php_)?opcache(\.dll)?[ \t]*$", "",
-                        System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-                    var block = new System.Text.StringBuilder();
-                    block.Append("\r\n; --- DesktopServer: extensions ---\r\n");
-                    foreach (var ext in enabledExtensions) block.Append($"extension={ext}\r\n");
-                    // opcache is a Zend extension; loading it with extension= silently fails.
-                    if (hasOpcache) block.Append("zend_extension=opcache\r\n");
-
-                    // --- Developer mode ---
-                    block.Append("\r\n; --- DesktopServer: developer mode ---\r\n");
-                    block.Append("display_errors = On\r\n");
-                    block.Append("display_startup_errors = On\r\n");
-                    block.Append("error_reporting = E_ALL\r\n");
-                    block.Append("log_errors = On\r\n");
-                    block.Append("memory_limit = 512M\r\n");
-                    block.Append("upload_max_filesize = 2048M\r\n");
-                    block.Append("post_max_size = 2048M\r\n");
-                    block.Append("max_execution_time = 600\r\n");
-                    block.Append("max_input_time = 600\r\n");
-                    block.Append("date.timezone = Asia/Bangkok\r\n");
-                    if (hasOpcache)
-                    {
-                        block.Append("opcache.enable = 1\r\n");
-                        block.Append("opcache.enable_cli = 1\r\n");
-                        // Pick up edits on the next request instead of caching them for a
-                        // minute - the single most important opcache setting for development.
-                        block.Append("opcache.validate_timestamps = 1\r\n");
-                        block.Append("opcache.revalidate_freq = 0\r\n");
-                    }
-                    ini += block.ToString();
-
-                    File.WriteAllText(iniPath, ini);
+                    // Pro installs four PHP versions side by side and they do not carry the
+                    // same extensions, or even spell them the same way; the patcher works
+                    // from what each folder and its stock php.ini really contain.
+                    InstallCaBundle(pDir);
+                    File.WriteAllText(iniPath, PhpIniPatcher.Apply(File.ReadAllText(iniPath), pDir));
                     Log($"Configured php.ini for {Path.GetFileName(pDir)} (Robust Mode)");
                 }
             }

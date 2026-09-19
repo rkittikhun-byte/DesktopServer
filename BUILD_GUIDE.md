@@ -16,6 +16,7 @@ You can download the official binaries from these trusted sources:
 | **VC++ Redist** | [Microsoft Official](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170) | `vcredist_x64.exe` (VS 2015-2022) is required. |
 | **RoadRunner** | [Official GitHub](https://github.com/roadrunner-server/roadrunner/releases) | Use Windows-AMD64 version. |
 | **PostgreSQL** | [EDB Binaries](https://www.enterprisedb.com/download-postgresql-binaries) | Use Windows x86-64 ZIP Archive (v17.2 recommended). |
+| **CA Bundle** | [curl.se/ca/cacert.pem](https://curl.se/ca/cacert.pem) | Mozilla's root certificates. Required - see below. |
 
 ---
 
@@ -52,6 +53,26 @@ However, following these rules ensures the fastest installation:
 - **Structure**: Standard binary structure (bin, data, etc.). 
 - **Auto-Initialization**: The Manager automatically runs `initdb` with `trust` auth on first launch if the data directory is empty.
 - **Adminer**: Use the built-in Adminer button in the Go Manager for one-click access (auto-logs in as `postgres`).
+
+### 7. CA Bundle (`cacert.pem`)
+- **Structure**: The file itself, not zipped, in every edition's `Resources` folder.
+- **Why it is required**: cURL on Windows ships with no list of certificate authorities, so
+  without this file every `https://` request from PHP fails with
+  `SSL certificate problem: self-signed certificate in certificate chain` (errno 60) - which
+  breaks Composer, any API call, and most package installs. The installer copies it to
+  `phpNN/extras/ssl/cacert.pem` and points `curl.cainfo` at it.
+- **`openssl.cafile` is deliberately left unset**: PHP's own stream wrappers then verify
+  against the Windows certificate store, which also knows the roots of a corporate proxy or
+  an antivirus that inspects TLS.
+- **Keep it fresh**: it is a snapshot of Mozilla's list. Refresh it when rebuilding, and
+  check it against the published hash:
+  ```
+  curl -O https://curl.se/ca/cacert.pem
+  curl -O https://curl.se/ca/cacert.pem.sha256
+  sha256sum -c cacert.pem.sha256
+  ```
+- **If it is missing**: the build still succeeds and the installer still runs; it logs a
+  warning and leaves `curl.cainfo` unset.
 
 ## 🐘 PostgreSQL Management Tools
 
