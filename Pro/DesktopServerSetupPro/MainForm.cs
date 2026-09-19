@@ -120,9 +120,11 @@ namespace DesktopServerSetupPro
         private async Task StartInstallation()
         {
             string baseRoot = txtInstallPath.Text.Trim();
-            if (string.IsNullOrEmpty(baseRoot))
+            string? pathProblem = InstallPath.Reject(baseRoot);
+            if (pathProblem != null)
             {
-                MessageBox.Show("Please select a valid path.");
+                MessageBox.Show(pathProblem, "Choose a different folder",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 

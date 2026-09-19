@@ -122,9 +122,11 @@ public partial class MainForm : Form
     private async Task StartInstallation()
     {
         string rootPath = txtInstallPath.Text.Trim();
-        if (string.IsNullOrEmpty(rootPath))
+        string? pathProblem = InstallPath.Reject(rootPath);
+        if (pathProblem != null)
         {
-            MessageBox.Show("Please select a valid path.");
+            MessageBox.Show(pathProblem, "Choose a different folder",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
